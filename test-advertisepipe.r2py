@@ -1,0 +1,14 @@
+advertisepipe = dy_import_module("advertisepipe.r2py")
+
+def sleeperthread():
+  while True:
+    sleep(100)
+
+if callfunc == "initialize":
+  for i in range(int(callargs[0])):
+    createthread(sleeperthread)
+
+  advertisepipe.add_to_pipe("My test key", "my test value")
+  while True:
+    log(getruntime(), "Dict is", advertisepipe.advertise_dict, "Last error:", advertisepipe.mycontext["advertisepipe_last_error"], "\n")
+    sleep(30)
