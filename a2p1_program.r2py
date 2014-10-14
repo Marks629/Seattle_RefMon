@@ -1,0 +1,20 @@
+if "testfile.txt" in listfiles():
+  removefile("testfile.txt")
+myfile=openfile("testfile.txt",True)  #Open a file
+
+# put some initial data in the file.
+myfile.writeat("test123456",0)
+
+#set maximum file size allowed to 10
+myfile.setmaxfilesize(10)
+
+try:
+  myfile.writeat("test123456abcdefg",1000)
+except SeekPastEndOfFileError:
+  pass # there should be an exception here...
+else:
+  log("ERROR!  Didn't stop me from writing past the maximum file size.\n")
+
+
+#Close the file
+myfile.close()
