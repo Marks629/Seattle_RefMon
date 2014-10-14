@@ -27,18 +27,29 @@ class SecureFile():
     mycontext['size'] = None
     # local (per object) reference to the underlying file
     self.file = file
+    mycontext['curFileSize'] = 0;
 
   def setmaxfilesize(self,size):
     mycontext['size'] = size
 
   def writeat(self,data,offset):
     
+    newDataSize = len(data);
+    log('Current File size: ' + str(mycontext['curFileSize']) + '\n');
+    log('Size of new Data: ' + str(newDataSize) + '\n');
+    log('Current File Size Limit: ' + str(mycontext['size']) + '\n');
     #raise error if user try to write beyond permitted file size
-    if mycontext['size'] and offset >= mycontext['size']:
+    if mycontext['size'] and (offset >= mycontext['size'] or offset >= mycontext['curFileSize']):
+      log("Offset out of current file size or EOF!\n");
+      raise SeekPastEndOfFileError("Tried to write past the end!")
+
+    if mycontext['size'] and offset + newDataSize >= mycontext['size']:
+      log("Exceeded File Size Limit!\n");
       raise SeekPastEndOfFileError("Tried to write past the end!")
 
     # Write the requested data to the file using the sandbox's writeat call
     self.file.writeat(data,offset)
+    mycontext['curFileSize'] += newDataSize;
   
   def readat(self,bytes,offset):
     return self.file.readat(bytes,offset)

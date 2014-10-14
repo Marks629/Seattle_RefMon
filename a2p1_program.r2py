@@ -3,13 +3,13 @@ if "testfile.txt" in listfiles():
 myfile=openfile("testfile.txt",True)  #Open a file
 
 # put some initial data in the file.
-myfile.writeat("test123456",0)
+myfile.writeat("t56",0)
 
 #set maximum file size allowed to 10
 myfile.setmaxfilesize(10)
 
 try:
-  myfile.writeat("test123456abcdefg",1000)
+  myfile.writeat("test123456abcdefg",5)
 except SeekPastEndOfFileError:
   pass # there should be an exception here...
 else:
