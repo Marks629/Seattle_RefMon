@@ -17,50 +17,151 @@ Note:
     python repy.py restrictions.default encasementlib.r2py [security_layer].r2py [attack_program].r2py 
     
     """ 
+TYPE="type"
+ARGS="args"
+RETURN="return"
+EXCP="exceptions"
+TARGET="target"
+FUNC="func"
+OBJC="objc"
 
 
 class SecureFile():
-  def __init__(self,file):
+  def __init__(self,file, fileName):
     # globals
     mycontext['debug'] = False   
     # starts as "None", which allows writes of any size.
-    mycontext['size'] = None
+    mycontext['fileSizeLimit'] = None
     # local (per object) reference to the underlying file
     self.file = file
-    mycontext['curFileSize'] = 0;
+    mycontext['curFileSize'] = 0
+    mycontext['fileName'] = fileName
+    # Locks, this is to make sure only one thread is reading or writing at any time
+    
+    log('creating readLock\n')
+    mycontext['readLock'] = secure_createlock()
+    log('creating writeLock\n')
+    mycontext['writeLock'] = secure_createlock()
+
+    
+  def truncatefile(self, size):
+    truncatedData = self.readat(size, 0)
+    #Close the file
+    self.file.close()
+    #remove the file
+    removefile(mycontext['fileName'])
+    #open it again
+    self.file = openfile(mycontext['fileName'],True)  #Open a file
+    #write truncated data
+    self.writeat(truncatedData, 0)
 
   def setmaxfilesize(self,size):
-    mycontext['size'] = size
 
-  def writeat(self,data,offset):
+    mycontext['readLock'].acquire(bool(1)) # will block if lock is already held
+    mycontext['writeLock'].acquire(bool(1))
+
+    #rFileLock.acquire(bool(1)) # will block if lock is already held
+    #wFileLock.acquire(bool(1))
+    #writelock.acquire(1)
+
+    log('Current File size Limit: ' + str(mycontext['fileSizeLimit']) + '\n')
+    log('Current File size: ' + str(mycontext['curFileSize']) + '\n')
+    log('Proposed File Size Limit: ' + str(size) + '\n')
     
-    newDataSize = len(data);
-    log('Current File size: ' + str(mycontext['curFileSize']) + '\n');
-    log('Size of new Data: ' + str(newDataSize) + '\n');
-    log('Current File Size Limit: ' + str(mycontext['size']) + '\n');
-    #raise error if user try to write beyond permitted file size
-    if mycontext['size'] and (offset >= mycontext['size'] or offset >= mycontext['curFileSize']):
-      log("Offset out of current file size or EOF!\n");
-      raise SeekPastEndOfFileError("Tried to write past the end!")
+    #truncate file if needed
+    if (mycontext['fileSizeLimit'] == None and size < mycontext['curFileSize']) or (mycontext['fileSizeLimit'] and size < mycontext['fileSizeLimit']):
+      self.truncatefile(size)
+      mycontext['curFileSize'] = size
 
-    if mycontext['size'] and offset + newDataSize >= mycontext['size']:
-      log("Exceeded File Size Limit!\n");
-      raise SeekPastEndOfFileError("Tried to write past the end!")
+    mycontext['fileSizeLimit'] = size
+    log('New File Size Limit: ' + str(size) + '\n\n')
+
+    log('releasing locks\n')
+    mycontext['readLock'].release()    
+    mycontext['writeLock'].release()
+
+    #rFileLock.release()
+    #wFileLock.release()
+    
+  def writeat(self,data,offset):
+    mycontext['readLock'].acquire(bool(1)) # will block if lock is already held
+    mycontext['writeLock'].acquire(bool(1))
+
+    #rFileLock.acquire(bool(1)) # will block if lock is already held
+    #wFileLock.acquire(bool(1))
+
+    if(offset < 0):
+      raise RepyArgumentError #offset can't be < 0
+
+    newDataSize = len(data)
+    curFileSize = mycontext['curFileSize']
+    fileSizeLimit = mycontext['fileSizeLimit']
+
+    if offset + newDataSize  <= curFileSize: 
+      newFileSize = curFileSize
+    else:
+      additionalDataSize = offset + newDataSize - curFileSize
+      newFileSize = curFileSize + additionalDataSize
+
+    if fileSizeLimit:
+      log('Current File Size Limit: ' + str(fileSizeLimit) + '\n')
+      log('Current File size: ' + str(curFileSize) + '\n')
+      log('Size of new Data: ' + str(newDataSize) + ' at position: ' + str(offset) + '\n')
+    
+    log('New File Size after writing new data: ' + str(newFileSize) + '\n')
+
+    #raise error if user try to write after EOF or current fileSize limit
+    if fileSizeLimit and (offset > fileSizeLimit or offset > curFileSize):
+      log("Offset out of current file size or EOF!\n")  
+      log('releasing locks\n')
+      mycontext['readLock'].release()    
+      mycontext['writeLock'].release()
+      # rFileLock.release()
+      # wFileLock.release()
+      raise SeekPastEndOfFileError("Offset out of current file size or EOF!")
+
+    #Don't raise error if user is trying to write more than file size limit. write only upto file size limit
+    if fileSizeLimit and newFileSize > fileSizeLimit:
+      extraDataSize = offset + newDataSize - fileSizeLimit
+      additionalDataSizeWithinLimits = newDataSize - extraDataSize
+      log('additionalDataSizeWithinLimits: ' + str(additionalDataSizeWithinLimits) + '\n')
+      trimData = data[:additionalDataSizeWithinLimits]
+      log('\nNew trimmed data: ' + trimData + '\n\n')
+      data = trimData
 
     # Write the requested data to the file using the sandbox's writeat call
     self.file.writeat(data,offset)
-    mycontext['curFileSize'] += newDataSize;
+    #update current file size
+    if offset + newDataSize <= curFileSize:
+      # Do nothing
+      mycontext['curFileSize'] = newFileSize
+    else:
+      mycontext['curFileSize'] = curFileSize + additionalDataSize
+
+
+
+    log('releasing locks\n')
+    mycontext['readLock'].release()    
+    mycontext['writeLock'].release()
+
+    log('Data written\n')
+    # rFileLock.release()
+    # wFileLock.release()
   
   def readat(self,bytes,offset):
     return self.file.readat(bytes,offset)
 
   def close(self):
+    # readLock = mycontext['readLock']
+    # writeLock = mycontext['writeLock']
+    # readLock.release()    
+    # writeLock.release()    
     return self.file.close()
 
 
 def secure_openfile(filename, create):
   f = openfile(filename,create)
-  return SecureFile(f)
+  return SecureFile(f,filename)
 
 def secure_listfiles():
   return listfiles()
@@ -74,6 +175,7 @@ def secure_removefile(filename):
 sec_file_def = {"obj-type":SecureFile,
                 "name":"SecureFile",
                 "setmaxfilesize":{"type":"func","args":(int,long, type(None)),"exceptions":Exception,"return":(type(None)),"target":SecureFile.setmaxfilesize},
+                "truncatefile":{"type":"func","args":(int,long, type(None)),"exceptions":Exception,"return":(type(None)),"target":SecureFile.truncatefile},
                 "writeat":{"type":"func","args":(str,(int,long)),"exceptions":Exception,"return":(int,type(None)),"target":SecureFile.writeat},
                 "readat":{"type":"func","args":((int,long,type(None)),(int,long)),"exceptions":Exception,"return":str,"target":SecureFile.readat},
                 "close":{"type":"func","args":None,"exceptions":None,"return":(bool,type(None)),"target":SecureFile.close}
@@ -82,6 +184,34 @@ sec_file_def = {"obj-type":SecureFile,
 CHILD_CONTEXT_DEF["openfile"]["target"] = secure_openfile
 CHILD_CONTEXT_DEF["listfiles"]["target"] = secure_listfiles
 CHILD_CONTEXT_DEF["removefile"]["target"] = secure_removefile
+
+
+class SecureLock():
+  def __init__(self,lock):
+    self.lock = lock
+
+  def acquire(self, blocking):
+    return self.lock.acquire(blocking)
+
+  def release(self):
+    return self.lock.release()
+
+sec_lock_def = {"obj-type":SecureLock,
+                  "name":"SecureLock",
+                  "acquire":{"type":"func","args":(bool,),"return":bool,"exceptions":None,"target":SecureLock.acquire},
+                  "release":{"type":"func","args":None,"return":None,"exceptions":Exception,"target":SecureLock.release},
+                 }
+
+def secure_createlock():
+  l = createlock()
+  return SecureLock(l)
+
+CHILD_CONTEXT_DEF["createlock"] = {"type":"func","args":None,"exceptions":None,"return":sec_lock_def,"target":secure_createlock}
+
+rFileLock = secure_createlock()
+wFileLock = secure_createlock()
+
+
 
 # Execute the user code
 secure_dispatch_module()

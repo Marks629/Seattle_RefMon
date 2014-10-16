@@ -1,20 +1,197 @@
-if "testfile.txt" in listfiles():
-  removefile("testfile.txt")
-myfile=openfile("testfile.txt",True)  #Open a file
-
-# put some initial data in the file.
-myfile.writeat("t56",0)
-
-#set maximum file size allowed to 10
-myfile.setmaxfilesize(10)
-
-try:
-  myfile.writeat("test123456abcdefg",5)
-except SeekPastEndOfFileError:
-  pass # there should be an exception here...
-else:
-  log("ERROR!  Didn't stop me from writing past the maximum file size.\n")
+TYPE="type"
+ARGS="args"
+RETURN="return"
+EXCP="exceptions"
+TARGET="target"
+FUNC="func"
+OBJC="objc"
 
 
-#Close the file
-myfile.close()
+def runTest(id):
+  if id == 1 or id == 0:
+
+    # Test Case 1:
+    log("\n=======>Test Case 1<=======\n");
+    #sleep(3)
+
+    if "look1.txt" in listfiles():
+      try:
+        removefile("look1.txt")
+      except FileInUseError:
+        log("File in use")
+      else:
+        #good to open file
+        pass
+
+    try:
+      myfile=openfile("look1.txt",True)  #Open a file
+    except FileInUseError:
+      log("File in use")
+    else:
+      #file opened for writing
+      pass
+
+    #write something
+    myfile.writeat("Test",0)
+
+    
+
+    #set maximum file size allowed to 10
+    myfile.setmaxfilesize(15)
+
+    #the following writeat offset and data is within filesize limit, so security layer should not block it
+    try:
+      myfile.writeat("Testing",-1)
+    except SeekPastEndOfFileError:
+      log("Security layer failed because it blocked a valid write operation \n")
+    except RepyArgumentError:
+      log("Offset can't be -1\n")
+      log("Test Case Passed\n")
+    else:
+      #user is allowed to write if its at valid place
+      log("Test Case shouldn't pass\n")
+
+    #Close the file
+    myfile.close()
+
+  if id == 2 or id == 0:
+
+
+    # Test Case 2:
+    log("\n=======>Test Case 2<=======\n");
+    #sleep(3)
+    if "look1.txt" in listfiles():
+      try:
+        removefile("look1.txt")
+      except FileInUseError:
+        log("File in use")
+      else:
+        #good to open file
+        pass
+
+    try:
+      myfile2=openfile("look1.txt",True)  #Open a file
+    except FileInUseError:
+      log("File in use")
+    else:
+      #file opened for writing
+      pass
+
+    log("Writing something\n")
+    #write something
+    myfile2.writeat("TestCode",0)
+
+    #set maximum file size allowed to 10
+    myfile2.setmaxfilesize(10)
+
+    #the following writeat will try to write a data that starts within permitted size but goes beyond that. 
+    myfile2.writeat("CheckPassOrFail",4)
+    data = myfile2.readat(None,0)
+    if data == 'TestCheckP':
+      #security layer properly truncated extra characters
+      pass
+      log("Test Case Passed\n")
+    else:
+      log("file size compromised\n")
+
+    #if we set the offset to 10 then it should raise error. User can try that too
+
+    #Close the file
+    myfile2.close()
+
+  if id == 3 or id == 0:
+
+    # Test Case 3:
+
+    log("\n=======>Test Case 3<=======\n");
+    #sleep(3)
+    if "look1.txt" in listfiles():
+      try:
+        removefile("look1.txt")
+      except FileInUseError:
+        log("File in use")
+      else:
+        #good to open file
+        pass
+
+    try:
+      myfile=openfile("look1.txt",True)  #Open a file
+    except FileInUseError:
+      log("File in use")
+    else:
+      #file opened for writing
+      pass
+
+
+    # put some initial data in the file.
+    myfile.writeat("abcdefghijklmn",0)
+
+    #set maximum file size allowed to 10
+    myfile.setmaxfilesize(15)
+
+    try:
+      myfile.writeat("abcdefg", 12)
+    except SeekPastEndOfFileError:
+      log("Seek Past End of File Error detected\n")
+
+    data = myfile.readat(None,0)
+
+    if data == 'abcdefghijklabc':
+      #security layer properly truncated extra characters
+      pass
+      log("Test Case Passed\n")
+    else:
+      log("file size compromised\n")
+
+
+    #the following writeat offset and data is within filesize limit, so security layer should not block it
+    # try:
+    #   myfile.writeat("Testing",2)
+    # except SeekPastEndOfFileError:
+    #   log("Security layer failed because it blocked a valid write operation \n")
+    # else:
+    #   #user is allowed to write if its at valid place
+    #   pass
+
+
+
+    #Close the file
+    myfile.close()
+
+def runTests():
+  runTest(0)
+  
+  runTest(1)
+  runTest(2)
+  runTest(3)
+  #createthread(runTest(3)) 
+  #createthread(runTest(1))
+  #createthread(runTest(2))
+  
+
+CHILD_CONTEXT_DEF["createthread"] = {"type":"func","args":None,"exceptions":Exception,"return":None,"target":runTests}
+
+
+def secure_createthread(f):
+  return createthread(f)
+
+CHILD_CONTEXT_DEF["createthread"] = {"type":"func","args":("any",),"exceptions":Exception,"return":None,"target":secure_createthread}
+
+def secure_sleep(time):
+  sleep(time)
+
+CHILD_CONTEXT_DEF["sleep"] = {TYPE:FUNC,ARGS:((int,long,float),),EXCP:None,RETURN:None,TARGET:secure_sleep}
+
+def secure_getthreadname():
+  return getthreadname()
+
+CHILD_CONTEXT_DEF["getthreadname"] = {TYPE:FUNC,ARGS:None,EXCP:None,RETURN:str,TARGET:secure_getthreadname}
+
+def secure_exitall():
+  return exitall()
+
+CHILD_CONTEXT_DEF["exitall"] = {TYPE:FUNC,ARGS:None,EXCP:None,RETURN:None,TARGET:secure_exitall}
+
+
+runTests()
+

@@ -1,0 +1,4 @@
+Input non UTF-8 string
+
+write at offset well within limit but data is longer
+
