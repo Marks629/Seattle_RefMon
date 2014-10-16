@@ -45,7 +45,7 @@ def runTest(id):
     except SeekPastEndOfFileError:
       log("Security layer failed because it blocked a valid write operation \n")
     except RepyArgumentError:
-      # log("Offset can't be -1\n")
+      log("Offset can't be -1\n")
       log("Test Case Passed\n")
     else:
       #user is allowed to write if its at valid place
@@ -84,8 +84,7 @@ def runTest(id):
     except SeekPastEndOfFileError:
       pass
     except RepyArgumentError:
-      # log("Offset can't be > EOF\n")
-      log("Test Case Passed\n")
+      log("Offset can't be > EOF\n")
       pass
     else:
       #user is allowed to write only if its at valid place
@@ -167,7 +166,6 @@ def runTest(id):
     else:
       data = myfile.readat(7,2)
       if data == 'Testing':
-        log("Test Case Passed\n")
         #user is allowed to write if its at valid place
         pass
 
@@ -198,16 +196,14 @@ def runTest(id):
 
     myfile.setmaxfilesize(None);
 
-    # log("Writing something\n")
+    log("Writing something\n")
     #write something
     try:
       myfile.writeat("TestCode",50)
     except SeekPastEndOfFileError:
-      log("Test Case Passed\n")
       pass
     except RepyArgumentError:
-      log("Test Case Passed\n")
-      # log("Offset can't be > EOF\n")
+      log("Offset can't be > EOF\n")
       pass
     else:
       #user is allowed to write only if its at valid place
