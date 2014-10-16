@@ -29,52 +29,15 @@ OBJC="objc"
 class SecureFile():
   def __init__(self,file, fileName):
     # globals
+    mycontext['debug'] = False   
+    # starts as "None", which allows writes of any size.
+    mycontext['fileSizeLimit'] = None
     # local (per object) reference to the underlying file
     self.file = file
-    
     mycontext['curFileSize'] = 0
     mycontext['fileName'] = fileName
-    mycontext['debug'] = False
-    mycontext['fileSizeLimit'] = None
-
-    fileSizeLimitFileName = fileName + '.limit'
-
-    mycontext['fileSizeLimitFileName'] = fileSizeLimitFileName
-
-    curFileData = self.readat(None,0)
-    curFileSize = len(curFileData)
-    mycontext['curFileSize'] = curFileSize
-    
-
-    if fileSizeLimitFileName in listfiles():
-      fileSizeLimitFile = openfile(fileSizeLimitFileName,True)
-      fileSizeLimit = fileSizeLimitFile.readat(None,0)
-      log('trying to restore file size limit to: ' + str(fileSizeLimit) + '\n')
-      if fileSizeLimit == None:
-        mycontext['fileSizeLimit'] = None
-      else:
-        try:
-          int(fileSizeLimit)
-        except ValueError:
-          mycontext['fileSizeLimit'] = None
-          #fail
-        else:
-          if fileSizeLimit >= 0:
-            mycontext['fileSizeLimit'] = fileSizeLimit
-          else:
-            mycontext['fileSizeLimit'] = None
-      #close the file
-      fileSizeLimitFile.close()
-      #remove the file
-      removefile(fileSizeLimitFileName)
-    
-    #open it again or create new one to store the limit
-    fileSizeLimitFile = openfile(fileSizeLimitFileName,True)  #Open a file
-    log('>>>>>>>file size limit stored: ' + str(mycontext['fileSizeLimit']) + '\n')
-    fileSizeLimitFile.writeat(str(mycontext['fileSizeLimit']), 0)
-    fileSizeLimitFile.close()
-
     # Locks, this is to make sure only one thread is reading or writing at any time
+    
     log('creating readLock\n')
     mycontext['readLock'] = secure_createlock()
     log('creating writeLock\n')
@@ -106,33 +69,13 @@ class SecureFile():
     log('Proposed File Size Limit: ' + str(size) + '\n')
     
     #truncate file if needed
-    if size == None:
-      mycontext['fileSizeLimit'] = None
-    elif size < mycontext['curFileSize']:
+    if (mycontext['fileSizeLimit'] == None and size < mycontext['curFileSize']) or (mycontext['fileSizeLimit'] and size < mycontext['fileSizeLimit']):
       self.truncatefile(size)
       mycontext['curFileSize'] = size
-    else:
-      mycontext['fileSizeLimit'] = size
-    
-    log('New File Size Limit set to: ' + str(mycontext['fileSizeLimit']) + '\n\n')
 
+    mycontext['fileSizeLimit'] = size
+    log('New File Size Limit: ' + str(size) + '\n\n')
 
-    #storing file size limit to disk
-    fileSizeLimitFileName = mycontext['fileSizeLimitFileName']
-
-    if fileSizeLimitFileName in listfiles():
-      try:
-        removefile(fileSizeLimitFileName)
-      except FileInUseError:
-        log("File in use")
-      else:
-        #open it again or create new one to store the limit
-        fileSizeLimitFile = openfile(fileSizeLimitFileName,True)  #Open a file
-        log('>>>>>>>file size limit stored: ' + str(mycontext['fileSizeLimit']) + '\n')
-        fileSizeLimitFile.writeat(str(mycontext['fileSizeLimit']), 0)
-        fileSizeLimitFile.close()
-
-    
     log('releasing locks\n')
     mycontext['readLock'].release()    
     mycontext['writeLock'].release()
@@ -156,7 +99,6 @@ class SecureFile():
 
     if offset + newDataSize  <= curFileSize: 
       newFileSize = curFileSize
-      additionalDataSize = 0
     else:
       additionalDataSize = offset + newDataSize - curFileSize
       newFileSize = curFileSize + additionalDataSize
@@ -169,14 +111,14 @@ class SecureFile():
     log('New File Size after writing new data: ' + str(newFileSize) + '\n')
 
     #raise error if user try to write after EOF or current fileSize limit
-    if (offset > curFileSize) or (fileSizeLimit and offset > fileSizeLimit) :
-      log("Offset out of current file size or EOF or fileSizeLimit!\n")  
+    if fileSizeLimit and (offset > fileSizeLimit or offset > curFileSize):
+      log("Offset out of current file size or EOF!\n")  
       log('releasing locks\n')
       mycontext['readLock'].release()    
       mycontext['writeLock'].release()
       # rFileLock.release()
       # wFileLock.release()
-      raise SeekPastEndOfFileError("Offset out of current file size or EOF or fileSizeLimit!")
+      raise SeekPastEndOfFileError("Offset out of current file size or EOF!")
 
     #Don't raise error if user is trying to write more than file size limit. write only upto file size limit
     if fileSizeLimit and newFileSize > fileSizeLimit:
@@ -186,15 +128,17 @@ class SecureFile():
       trimData = data[:additionalDataSizeWithinLimits]
       log('\nNew trimmed data: ' + trimData + '\n\n')
       data = trimData
-      additionalDataSize = additionalDataSizeWithinLimits
-      #update current file size
-      mycontext['curFileSize'] = fileSizeLimit
-    else:
-      #update current file size
-      mycontext['curFileSize'] = newFileSize
 
     # Write the requested data to the file using the sandbox's writeat call
     self.file.writeat(data,offset)
+    #update current file size
+    if offset + newDataSize <= curFileSize:
+      # Do nothing
+      mycontext['curFileSize'] = newFileSize
+    else:
+      mycontext['curFileSize'] = curFileSize + additionalDataSize
+
+
 
     log('releasing locks\n')
     mycontext['readLock'].release()    
