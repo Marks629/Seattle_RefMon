@@ -57,6 +57,9 @@ class SecureFile():
 
   def setmaxfilesize(self,size):
 
+    if size != None and size < 0:
+      raise RepyArgumentError
+
     mycontext['readLock'].acquire(bool(1)) # will block if lock is already held
     mycontext['writeLock'].acquire(bool(1))
 
@@ -140,6 +143,8 @@ class SecureFile():
       #update current file size
       mycontext['curFileSize'] = newFileSize
 
+    # log('New Current File size: ' + str(mycontext['curFileSize']) + '\n')
+
     # Write the requested data to the file using the sandbox's writeat call
     self.file.writeat(data,offset)
 
@@ -151,7 +156,13 @@ class SecureFile():
     # rFileLock.release()
     # wFileLock.release()
   def readat(self,bytes,offset):
-    return self.file.readat(bytes,offset)
+    if(offset < 0):
+      raise RepyArgumentError #offset can't be < 0
+    try:
+      readData = self.file.readat(bytes,offset)
+    except SeekPastEndOfFileError:
+      raise SeekPastEndOfFileError
+    return readData
 
   def close(self):
     # readLock = mycontext['readLock']

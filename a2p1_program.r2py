@@ -37,7 +37,13 @@ def runTest(id):
     
 
     #set maximum file size allowed to 10
-    myfile.setmaxfilesize(9)
+    try:
+      myfile.setmaxfilesize(-1)
+    except RepyArgumentError:
+      log("Test Case Passed")
+      pass
+    else:
+      log("Test Case shouldn't Pass\n")
 
     #the following writeat offset and data is within filesize limit, so security layer should not block it
     try:
