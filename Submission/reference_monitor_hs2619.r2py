@@ -1,4 +1,7 @@
 """
+
+Author: Harshit Sanghvi
+
 This security layer interposes size restrictions on a file.  If a call is made 
 to setmaxfilesize, the file must not be allowed to grow larger than the 
 specified value.  If a user tries to write that starts before the end of file 
@@ -37,31 +40,40 @@ class SecureFile():
     mycontext['debug'] = False
     mycontext['fileSizeLimit'] = None    
 
-    # Locks, this is to make sure only one thread is reading or writing at any time
-    # log('creating readLock\n')
-    mycontext['readLock'] = secure_createlock()
-    # log('creating writeLock\n')
-    mycontext['writeLock'] = secure_createlock()
+    # # log('creating writeLock\n')
+    # mycontext['writeLock'] = secure_createlock()
 
     
   def truncatefile(self, size):
     truncatedData = self.readat(size, 0)
+    
+
+    # # log('releasing locks\n')
+    # mycontext['readLock'].release()    
+    # mycontext['writeLock'].release()
+
     #Close the file
-    self.file.close()
+    self.close()
+
+    # log("===>Acquiring Lock\n")
+    mycontext['lock'].acquire(True)
+
     #remove the file
     removefile(mycontext['fileName'])
     #open it again
     self.file = openfile(mycontext['fileName'],True)  #Open a file
+    
+    # mycontext['readLock'].acquire(bool(1)) # will block if lock is already held
+    # mycontext['writeLock'].acquire(bool(1))
+
+
     #write truncated data
-    self.writeat(truncatedData, 0)
+    self.file.writeat(truncatedData, 0)
 
   def setmaxfilesize(self,size):
 
-    if size != None and size < 0:
-      raise RepyArgumentError
-
-    mycontext['readLock'].acquire(bool(1)) # will block if lock is already held
-    mycontext['writeLock'].acquire(bool(1))
+    # mycontext['readLock'].acquire(bool(1)) # will block if lock is already held
+    # mycontext['writeLock'].acquire(bool(1))
 
     #rFileLock.acquire(bool(1)) # will block if lock is already held
     #wFileLock.acquire(bool(1))
@@ -77,21 +89,22 @@ class SecureFile():
     elif size < mycontext['curFileSize']:
       self.truncatefile(size)
       mycontext['curFileSize'] = size
+
     else:
       mycontext['fileSizeLimit'] = size
     
     # log('New File Size Limit set to: ' + str(mycontext['fileSizeLimit']) + '\n\n')
     
-    # log('releasing locks\n')
-    mycontext['readLock'].release()    
-    mycontext['writeLock'].release()
+    # # log('releasing locks\n')
+    # mycontext['readLock'].release()    
+    # mycontext['writeLock'].release()
 
     #rFileLock.release()
     #wFileLock.release()
     
   def writeat(self,data,offset):
-    mycontext['readLock'].acquire(bool(1)) # will block if lock is already held
-    mycontext['writeLock'].acquire(bool(1))
+    # mycontext['readLock'].acquire(bool(1)) # will block if lock is already held
+    # mycontext['writeLock'].acquire(bool(1))
 
     #rFileLock.acquire(bool(1)) # will block if lock is already held
     #wFileLock.acquire(bool(1))
@@ -121,9 +134,9 @@ class SecureFile():
     #raise error if user try to write after EOF or current fileSize limit
     if (offset > curFileSize) or (fileSizeLimit and offset > fileSizeLimit) :
       # log("Offset out of current file size or EOF or fileSizeLimit!\n")  
-      # log('releasing locks\n')
-      mycontext['readLock'].release()    
-      mycontext['writeLock'].release()
+      # # log('releasing locks\n')
+      # mycontext['readLock'].release()    
+      # mycontext['writeLock'].release()
       # rFileLock.release()
       # wFileLock.release()
       raise SeekPastEndOfFileError("Offset out of current file size or EOF or fileSizeLimit!")
@@ -143,37 +156,38 @@ class SecureFile():
       #update current file size
       mycontext['curFileSize'] = newFileSize
 
-    # log('New Current File size: ' + str(mycontext['curFileSize']) + '\n')
-
     # Write the requested data to the file using the sandbox's writeat call
     self.file.writeat(data,offset)
 
-    # log('releasing locks\n')
-    mycontext['readLock'].release()    
-    mycontext['writeLock'].release()
+    # # log('releasing locks\n')
+    # mycontext['readLock'].release()    
+    # mycontext['writeLock'].release()
 
     # log('Data written\n')
     # rFileLock.release()
     # wFileLock.release()
   def readat(self,bytes,offset):
-    if(offset < 0):
-      raise RepyArgumentError #offset can't be < 0
-    try:
-      readData = self.file.readat(bytes,offset)
-    except SeekPastEndOfFileError:
-      raise SeekPastEndOfFileError
-    return readData
+    return self.file.readat(bytes,offset)
 
   def close(self):
     # readLock = mycontext['readLock']
     # writeLock = mycontext['writeLock']
     # readLock.release()    
-    # writeLock.release()    
+    # writeLock.release()
+    #release lock when file is closed
+    mycontext['lock'].release()     
+    # log("===>Lock released\n")
     return self.file.close()
 
 
 def secure_openfile(filename, create):
   f = openfile(filename,create)
+  # Locks, this is to make sure only one thread is reading or writing at any time
+  # log('Creating Lock\n')
+  mycontext['lock'] = secure_createlock()
+  mycontext['lock'].acquire(True)
+  # log("===>Lock acquired\n")
+
   return SecureFile(f,filename)
 
 def secure_listfiles():
