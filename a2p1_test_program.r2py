@@ -77,11 +77,12 @@ def runTest(id):
       #file opened for writing
       pass
 
-    log("Writing something\n")
+    # log("Writing something\n")
     #write something
     try:
       myfile2.writeat("TestCode",50)
     except SeekPastEndOfFileError:
+      log("Test Case Passed\n")
       pass
     except RepyArgumentError:
       # log("Offset can't be > EOF\n")
