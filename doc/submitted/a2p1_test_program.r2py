@@ -18,7 +18,7 @@ def runTest(id):
       try:
         removefile("look1.txt")
       except FileInUseError:
-        log("Error: File in use")
+        log("File in use")
       else:
         #good to open file
         pass
@@ -37,25 +37,19 @@ def runTest(id):
     
 
     #set maximum file size allowed to 10
-    try:
-      myfile.setmaxfilesize(10)
-    except RepyArgumentError:
-      log("Test Case Passed")
-      pass
-    else:
-      log("Error: Test Case shouldn't Pass\n")
+    myfile.setmaxfilesize(9)
 
     #the following writeat offset and data is within filesize limit, so security layer should not block it
     try:
       myfile.writeat("Testing",-1)
     except SeekPastEndOfFileError:
-      log("Error: Security layer failed because it blocked a valid write operation \n")
+      log("Security layer failed because it blocked a valid write operation \n")
     except RepyArgumentError:
       # log("Offset can't be -1\n")
       log("Test Case Passed\n")
     else:
       #user is allowed to write if its at valid place
-      log("Error: Test Case shouldn't pass\n")
+      log("Test Case shouldn't pass\n")
 
     #Close the file
     myfile.close()
@@ -70,7 +64,7 @@ def runTest(id):
       try:
         removefile("look1.txt")
       except FileInUseError:
-        log("Error: File in use")
+        log("File in use")
       else:
         #good to open file
         pass
@@ -78,12 +72,12 @@ def runTest(id):
     try:
       myfile2=openfile("look1.txt",True)  #Open a file
     except FileInUseError:
-      log("Error: File in use")
+      log("File in use")
     else:
       #file opened for writing
       pass
 
-    #log("Writing something\n")
+    log("Writing something\n")
     #write something
     try:
       myfile2.writeat("TestCode",50)
@@ -95,7 +89,7 @@ def runTest(id):
       pass
     else:
       #user is allowed to write only if its at valid place
-      log("Error: Test Case shouldn't pass\n")
+      log("Test Case shouldn't pass\n")
 
     myfile.setmaxfilesize(100)
     #Close the file
@@ -111,7 +105,7 @@ def runTest(id):
       try:
         removefile("look1.txt")
       except FileInUseError:
-        log("Error: File in use")
+        log("File in use")
       else:
         #good to open file
         pass
@@ -119,7 +113,7 @@ def runTest(id):
     try:
       myfile=openfile("look1.txt",True)  #Open a file
     except FileInUseError:
-      log("Error: File in use")
+      log("File in use")
     else:
       #file opened for writing
       pass
@@ -134,7 +128,7 @@ def runTest(id):
     try:
       myfile.writeat("abcdefg", 12)
     except SeekPastEndOfFileError:
-      log("Error: Seek Past End of File Error detected\n")
+      log("Seek Past End of File Error detected\n")
 
     data = myfile.readat(None,0)
 
@@ -143,7 +137,7 @@ def runTest(id):
       pass
       log("Test Case Passed\n")
     else:
-      log("Error: File size compromised\n")
+      log("file size compromised\n")
 
     #Close the file
     myfile.close()
@@ -157,7 +151,7 @@ def runTest(id):
     try:
       myfile=openfile("look1.txt",True)  #Open a file
     except FileInUseError:
-      log("Error: File in use")
+      log("File in use")
     else:
       #file opened for writing
       pass
@@ -169,7 +163,7 @@ def runTest(id):
     try:
       myfile.writeat("Testing",2)
     except SeekPastEndOfFileError:
-      log("Error: Security layer failed because it blocked a valid write operation \n")
+      log("Security layer failed because it blocked a valid write operation \n")
     else:
       data = myfile.readat(7,2)
       if data == 'Testing':
@@ -189,7 +183,7 @@ def runTest(id):
       try:
         removefile("look1.txt")
       except FileInUseError:
-        log("Error: File in use")
+        log("File in use")
       else:
         #good to open file
         pass
@@ -197,7 +191,7 @@ def runTest(id):
     try:
       myfile=openfile("look1.txt",True)  #Open a file
     except FileInUseError:
-      log("Error: File in use")
+      log("File in use")
     else:
       #file opened for writing
       pass
@@ -217,7 +211,7 @@ def runTest(id):
       pass
     else:
       #user is allowed to write only if its at valid place
-      log("Error: Test Case shouldn't pass\n")
+      log("Test Case shouldn't pass\n")
             
 
 def runTests():
